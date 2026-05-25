@@ -64,6 +64,16 @@ struct MainView: View {
                     .disabled(viewModel.undoStack.isEmpty)
                     .keyboardShortcut("z", modifiers: .command)
                     .help("Undo last move (Cmd+Z)")
+                    
+                    // Delete button
+                    Button(action: {
+                        viewModel.initiateDelete()
+                    }) {
+                        Image(systemName: "trash")
+                            .foregroundColor(viewModel.selectedPhotoIDs.isEmpty ? .secondary : .red)
+                    }
+                    .disabled(viewModel.selectedPhotoIDs.isEmpty)
+                    .help("Move selected photos to Trash (Delete or Backspace)")
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 10)
@@ -151,6 +161,14 @@ struct MainView: View {
             if let target = viewModel.pendingTargetFolder {
                 Text("Are you sure you want to move \(viewModel.selectedPhotoIDs.count) photos to '\(target.name)'?")
             }
+        }
+        .alert("Delete Photos", isPresented: $viewModel.showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                viewModel.executeDelete()
+            }
+        } message: {
+            Text("Are you sure you want to move the \(viewModel.selectedPhotoIDs.count) selected photos to the Trash?")
         }
     }
     

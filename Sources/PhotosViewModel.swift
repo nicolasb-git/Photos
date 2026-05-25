@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import AppKit
 
 @MainActor
 public final class PhotosViewModel: ObservableObject {
@@ -21,6 +22,7 @@ public final class PhotosViewModel: ObservableObject {
     // For confirmation dialogs
     @Published public var showMoveConfirmation = false
     @Published public var pendingTargetFolder: TargetFolder? = nil
+    @Published public var showDeleteConfirmation = false
     
     private let fileManager = FileManager.default
     private static let allowedExtensions = ["jpg", "jpeg", "png", "heic", "cr2", "nef", "arw", "dng"]
@@ -267,6 +269,42 @@ public final class PhotosViewModel: ObservableObject {
         logDebug("removeTargetFolder: Removing targets at indexSet: \(indexSet)")
         targetFolders.remove(atOffsets: indexSet)
         saveSession()
+    }
+    
+    // MARK: - Deleting Files
+    
+    public func initiateDelete() {
+        guard !selectedPhotoIDs.isEmpty else {
+            self.statusMessage = "No photos selected to delete."
+            return
+        }
+        self.showDeleteConfirmation = true
+    }
+    
+    public func executeDelete() {
+        let selectedPhotos = photos.filter { selectedPhotoIDs.contains($0.id) }
+        guard !selectedPhotos.isEmpty else { return }
+        
+        self.isLoading = true
+        let urls = selectedPhotos.map { $0.url }
+        logDebug("executeDelete: Moving \(urls.count) files to Trash")
+        
+        NSWorkspace.shared.recycle(urls) { [weak self] trashedFiles, error in
+            Task { @MainActor in
+                guard let self = self else { return }
+                self.isLoading = false
+                if let error = error {
+                    self.statusMessage = "Failed to move photos to Trash: \(error.localizedDescription)"
+                    self.logDebug("executeDelete: FAILED with error: \(error.localizedDescription)")
+                } else {
+                    let trashedURLs = Set(trashedFiles.keys)
+                    self.photos.removeAll { trashedURLs.contains($0.url) }
+                    self.selectedPhotoIDs.removeAll()
+                    self.statusMessage = "Moved \(trashedFiles.count) photos to Trash."
+                    self.logDebug("executeDelete: Successfully trashed \(trashedFiles.count) files.")
+                }
+            }
+        }
     }
     
     // MARK: - Moving Files & Undo

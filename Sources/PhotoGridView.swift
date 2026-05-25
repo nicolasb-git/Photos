@@ -88,6 +88,11 @@ struct PhotoGridView: View {
             } else if isCmd && event.charactersIgnoringModifiers == "z" {
                 viewModel.undoLastMove()
                 return nil // consume event
+            } else if event.keyCode == 51 || event.keyCode == 117 { // Backspace or Delete
+                if !viewModel.selectedPhotoIDs.isEmpty {
+                    viewModel.initiateDelete()
+                    return nil // consume event
+                }
             } else if event.keyCode == 53 { // Escape
                 viewModel.clearSelection()
                 return nil // consume event
