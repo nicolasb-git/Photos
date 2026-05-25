@@ -54,23 +54,37 @@ struct PhotoCell: View {
                         .transition(.scale.combined(with: .opacity))
                 }
                 
-                // Info Button (visible on hover)
+                // Hover Tools Stack (visible on hover)
                 if isHovering {
-                    Button(action: {
-                        showInfoPopover = true
-                    }) {
-                        Image(systemName: "info.circle.fill")
-                            .foregroundColor(.white)
-                            .background(Circle().fill(Color.black.opacity(0.6)))
-                            .font(.title3)
-                            .padding(6)
+                    VStack(spacing: 8) {
+                        Button(action: {
+                            showInfoPopover = true
+                        }) {
+                            Image(systemName: "info.circle.fill")
+                                .foregroundColor(.white)
+                                .background(Circle().fill(Color.black.opacity(0.6)))
+                                .font(.title3)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Get Info")
+                        .popover(isPresented: $showInfoPopover, arrowEdge: .trailing) {
+                            PhotoInfoPopoverView(photo: photo)
+                        }
+                        
+                        Button(action: {
+                            onDoubleClick()
+                        }) {
+                            Image(systemName: "eye.circle.fill")
+                                .foregroundColor(.white)
+                                .background(Circle().fill(Color.black.opacity(0.6)))
+                                .font(.title3)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Preview Image")
                     }
-                    .buttonStyle(.plain)
+                    .padding(6)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .transition(.opacity)
-                    .popover(isPresented: $showInfoPopover, arrowEdge: .trailing) {
-                        PhotoInfoPopoverView(photo: photo)
-                    }
                 }
                 
                 // Hover Details Overlay
