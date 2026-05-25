@@ -83,6 +83,11 @@ struct PhotoGridView: View {
                 return event
             }
             
+            // Bypass if preview is currently overlayed
+            if previewPhoto != nil {
+                return event
+            }
+            
             if let responder = window.firstResponder {
                 let className = responder.className
                 if className.contains("Text") || responder is NSText {
