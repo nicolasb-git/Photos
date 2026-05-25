@@ -6,6 +6,7 @@ struct PhotoGridView: View {
     @Binding var previewPhoto: PhotoItem?
     
     @State private var lastClickedID: UUID? = nil
+    @State private var keyboardMonitor: Any? = nil
     
     var body: some View {
         ScrollView {
@@ -43,6 +44,12 @@ struct PhotoGridView: View {
         .onAppear {
             setupKeyboardMonitor()
         }
+        .onDisappear {
+            if let monitor = keyboardMonitor {
+                NSEvent.removeMonitor(monitor)
+                keyboardMonitor = nil
+            }
+        }
     }
     
     private func handleSelection(for photo: PhotoItem) {
@@ -66,10 +73,21 @@ struct PhotoGridView: View {
     }
     
     private func setupKeyboardMonitor() {
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            // Only monitor if this window is active and we aren't editing text
-            guard let window = NSApp.keyWindow, window.firstResponder?.className != "NSTextView" else {
+        if let monitor = keyboardMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        
+        keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            // Only monitor if the key window is active and it is the main window
+            guard let window = NSApp.keyWindow, window == NSApp.mainWindow else {
                 return event
+            }
+            
+            if let responder = window.firstResponder {
+                let className = responder.className
+                if className.contains("Text") || responder is NSText {
+                    return event
+                }
             }
             
             let isCmd = event.modifierFlags.contains(.command)

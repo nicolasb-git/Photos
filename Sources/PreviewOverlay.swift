@@ -7,6 +7,7 @@ struct PreviewOverlay: View {
     
     @State private var previewImage: NSImage? = nil
     @State private var isLoading = true
+    @State private var keyMonitor: Any? = nil
     
     var body: some View {
         ZStack {
@@ -87,12 +88,18 @@ struct PreviewOverlay: View {
             loadImage()
             
             // Listen for key presses (Space or Esc to dismiss)
-            NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 if event.keyCode == 49 || event.keyCode == 53 { // Space or Esc
                     onDismiss()
                     return nil // consume the event
                 }
                 return event
+            }
+        }
+        .onDisappear {
+            if let monitor = keyMonitor {
+                NSEvent.removeMonitor(monitor)
+                keyMonitor = nil
             }
         }
     }
