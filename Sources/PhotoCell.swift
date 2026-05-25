@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct PhotoCell: View {
     let photo: PhotoItem
@@ -9,6 +10,7 @@ struct PhotoCell: View {
     
     @State private var thumbnail: NSImage? = nil
     @State private var isHovering = false
+    @State private var showInfoPopover = false
     
     var body: some View {
         VStack(spacing: 4) {
@@ -50,6 +52,25 @@ struct PhotoCell: View {
                         .font(.title2)
                         .padding(6)
                         .transition(.scale.combined(with: .opacity))
+                }
+                
+                // Info Button (visible on hover)
+                if isHovering {
+                    Button(action: {
+                        showInfoPopover = true
+                    }) {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(.white)
+                            .background(Circle().fill(Color.black.opacity(0.6)))
+                            .font(.title3)
+                            .padding(6)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .transition(.opacity)
+                    .popover(isPresented: $showInfoPopover, arrowEdge: .trailing) {
+                        PhotoInfoPopoverView(photo: photo)
+                    }
                 }
                 
                 // Hover Details Overlay
@@ -119,6 +140,72 @@ struct PhotoCell: View {
             if let image = await ImageManager.shared.getThumbnail(for: photo.url, size: size * 2) {
                 await MainActor.run {
                     self.thumbnail = image
+                }
+            }
+        }
+    }
+}
+
+struct PhotoInfoPopoverView: View {
+    let photo: PhotoItem
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "info.circle.fill")
+                    .foregroundColor(.accentColor)
+                Text("Metadata Details")
+                    .font(.headline)
+            }
+            .padding(.bottom, 4)
+            
+            Divider()
+            
+            VStack(alignment: .leading, spacing: 8) {
+                InfoRow(label: "Filename", value: photo.filename)
+                InfoRow(label: "Location", value: photo.url.path, isPath: true)
+                InfoRow(label: "File Size", value: ByteCountFormatter.string(fromByteCount: photo.fileSize, countStyle: .file))
+                InfoRow(label: "Date Taken", value: photo.creationDateString)
+                if let model = photo.cameraModel {
+                    InfoRow(label: "Camera Model", value: model)
+                }
+            }
+        }
+        .padding()
+        .frame(width: 280)
+    }
+}
+
+struct InfoRow: View {
+    let label: String
+    let value: String
+    var isPath: Bool = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            HStack(alignment: .center, spacing: 6) {
+                Text(value)
+                    .font(.system(.body, design: isPath ? .monospaced : .default))
+                    .font(.system(size: isPath ? 10 : 12))
+                    .lineLimit(isPath ? 3 : 1)
+                    .textSelection(.enabled)
+                
+                if isPath {
+                    Button(action: {
+                        let pasteboard = NSPasteboard.general
+                        pasteboard.clearContents()
+                        pasteboard.setString(value, forType: .string)
+                    }) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.caption)
+                            .foregroundColor(.accentColor)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Copy full path")
                 }
             }
         }
