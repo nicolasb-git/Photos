@@ -71,9 +71,17 @@ for i in 1...100 {
         kCGImagePropertyTIFFModel: "Mock Camera X\(i % 3 + 1)"
     ]
     
+    let gpsMetadata: [CFString: Any] = [
+        kCGImagePropertyGPSLatitude: 48.8566 + (Double(i) * 0.001),
+        kCGImagePropertyGPSLatitudeRef: "N",
+        kCGImagePropertyGPSLongitude: 2.3522 - (Double(i) * 0.001),
+        kCGImagePropertyGPSLongitudeRef: "E"
+    ]
+    
     let metadata: [CFString: Any] = [
         kCGImagePropertyExifDictionary: exifMetadata,
-        kCGImagePropertyTIFFDictionary: tiffMetadata
+        kCGImagePropertyTIFFDictionary: tiffMetadata,
+        kCGImagePropertyGPSDictionary: gpsMetadata
     ]
     
     CGImageDestinationAddImage(destination, bitmap.cgImage!, metadata as CFDictionary)

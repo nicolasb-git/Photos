@@ -40,6 +40,9 @@ struct TestRunner {
         print("Loaded \(viewModel.photos.count) photos.")
         assert(viewModel.photos.count == 100, "Should load 100 photos, but loaded \(viewModel.photos.count)")
         print("PASS: Loaded 100 photos successfully.")
+        if let firstPhoto = viewModel.photos.first {
+            print("First photo GPS - Lat: \(String(describing: firstPhoto.latitude)), Lon: \(String(describing: firstPhoto.longitude))")
+        }
         
         // 2. Test sorting
         print("2. Verifying Sort Order...")

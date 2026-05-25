@@ -8,8 +8,10 @@ public struct PhotoItem: Identifiable, Hashable, Sendable {
     public let creationDate: Date
     public let creationDateString: String
     public let cameraModel: String?
+    public let latitude: Double?
+    public let longitude: Double?
     
-    public init(id: UUID = UUID(), url: URL, fileSize: Int64, creationDate: Date, cameraModel: String? = nil) {
+    public init(id: UUID = UUID(), url: URL, fileSize: Int64, creationDate: Date, cameraModel: String? = nil, latitude: Double? = nil, longitude: Double? = nil) {
         self.id = id
         self.url = url
         self.filename = url.lastPathComponent
@@ -22,6 +24,8 @@ public struct PhotoItem: Identifiable, Hashable, Sendable {
         self.creationDateString = formatter.string(from: creationDate)
         
         self.cameraModel = cameraModel
+        self.latitude = latitude
+        self.longitude = longitude
     }
     
     public func hash(into hasher: inout Hasher) {

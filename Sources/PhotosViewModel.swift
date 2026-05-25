@@ -138,7 +138,9 @@ public final class PhotosViewModel: ObservableObject {
                     url: fileURL,
                     fileSize: size,
                     creationDate: metadata.creationDate,
-                    cameraModel: metadata.cameraModel
+                    cameraModel: metadata.cameraModel,
+                    latitude: metadata.latitude,
+                    longitude: metadata.longitude
                 )
                 items.append(photo)
             }
@@ -410,7 +412,9 @@ public final class PhotosViewModel: ObservableObject {
                             url: item,
                             fileSize: size,
                             creationDate: metadata.creationDate,
-                            cameraModel: metadata.cameraModel
+                            cameraModel: metadata.cameraModel,
+                            latitude: metadata.latitude,
+                            longitude: metadata.longitude
                         )
                         // Avoid duplicates
                         if !self.photos.contains(where: { $0.url.path == photo.url.path }) {

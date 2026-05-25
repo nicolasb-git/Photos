@@ -54,8 +54,8 @@ struct PhotoCell: View {
                         .transition(.scale.combined(with: .opacity))
                 }
                 
-                // Hover Tools Stack (visible on hover)
-                if isHovering {
+                // Hover Tools Stack (visible on hover or when info popover is presented)
+                if isHovering || showInfoPopover {
                     VStack(spacing: 8) {
                         Button(action: {
                             showInfoPopover = true
@@ -87,8 +87,8 @@ struct PhotoCell: View {
                     .transition(.opacity)
                 }
                 
-                // Hover Details Overlay
-                if isHovering {
+                // Hover Details Overlay (visible on hover or when info popover is presented)
+                if isHovering || showInfoPopover {
                     VStack {
                         Spacer()
                         VStack(alignment: .leading, spacing: 2) {
@@ -180,8 +180,26 @@ struct PhotoInfoPopoverView: View {
                 InfoRow(label: "Location", value: photo.url.path, isPath: true)
                 InfoRow(label: "File Size", value: ByteCountFormatter.string(fromByteCount: photo.fileSize, countStyle: .file))
                 InfoRow(label: "Date Taken", value: photo.creationDateString)
+                
                 if let model = photo.cameraModel {
                     InfoRow(label: "Camera Model", value: model)
+                }
+                
+                if let lat = photo.latitude, let lon = photo.longitude {
+                    let latStr = String(format: "%.5f", lat)
+                    let lonStr = String(format: "%.5f", lon)
+                    InfoRow(
+                        label: "GPS Coordinates",
+                        value: "\(latStr)°, \(lonStr)°",
+                        actionIcon: "map",
+                        actionHelp: "Show in Apple Maps",
+                        action: {
+                            let urlString = "http://maps.apple.com/?q=\(lat),\(lon)"
+                            if let url = URL(string: urlString) {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -194,6 +212,9 @@ struct InfoRow: View {
     let label: String
     let value: String
     var isPath: Bool = false
+    var actionIcon: String? = nil
+    var actionHelp: String? = nil
+    var action: (() -> Void)? = nil
     
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -208,7 +229,15 @@ struct InfoRow: View {
                     .lineLimit(isPath ? 3 : 1)
                     .textSelection(.enabled)
                 
-                if isPath {
+                if let icon = actionIcon, let action = action {
+                    Button(action: action) {
+                        Image(systemName: icon)
+                            .font(.caption)
+                            .foregroundColor(.accentColor)
+                    }
+                    .buttonStyle(.plain)
+                    .help(actionHelp ?? "")
+                } else if isPath {
                     Button(action: {
                         let pasteboard = NSPasteboard.general
                         pasteboard.clearContents()

@@ -69,14 +69,16 @@ public final class ImageManager: Sendable {
         return CGImageSourceCreateThumbnailAtIndex(imageSource, 0, options as CFDictionary)
     }
     
-    public func getMetadata(for fileURL: URL) -> (creationDate: Date, cameraModel: String?) {
+    public func getMetadata(for fileURL: URL) -> (creationDate: Date, cameraModel: String?, latitude: Double?, longitude: Double?) {
         var creationDate = Date()
         var cameraModel: String? = nil
+        var latitude: Double? = nil
+        var longitude: Double? = nil
         
         if let imageSource = CGImageSourceCreateWithURL(fileURL as CFURL, nil) {
-            if let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any] {
+            if let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as NSDictionary? {
                 // 1. Try Exif DateTimeOriginal
-                if let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any] {
+                if let exif = properties[kCGImagePropertyExifDictionary] as? NSDictionary {
                     if let dateStr = exif[kCGImagePropertyExifDateTimeOriginal] as? String {
                         let formatter = DateFormatter()
                         formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
@@ -87,13 +89,31 @@ public final class ImageManager: Sendable {
                 }
                 
                 // 2. Try TIFF Model
-                if let tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any] {
+                if let tiff = properties[kCGImagePropertyTIFFDictionary] as? NSDictionary {
                     cameraModel = tiff[kCGImagePropertyTIFFModel] as? String
+                }
+                
+                // 3. Try GPS Dictionary
+                if let gps = properties[kCGImagePropertyGPSDictionary] as? NSDictionary {
+                    if let latVal = gps[kCGImagePropertyGPSLatitude],
+                       let latRef = gps[kCGImagePropertyGPSLatitudeRef] as? String {
+                        let lat = (latVal as? NSNumber)?.doubleValue ?? (latVal as? Double) ?? 0.0
+                        if lat != 0.0 {
+                            latitude = (latRef == "S") ? -lat : lat
+                        }
+                    }
+                    if let lonVal = gps[kCGImagePropertyGPSLongitude],
+                       let lonRef = gps[kCGImagePropertyGPSLongitudeRef] as? String {
+                        let lon = (lonVal as? NSNumber)?.doubleValue ?? (lonVal as? Double) ?? 0.0
+                        if lon != 0.0 {
+                            longitude = (lonRef == "W") ? -lon : lon
+                        }
+                    }
                 }
             }
         }
         
-        // 3. Fallback to file creation date if EXIF parser did not succeed
+        // 4. Fallback to file creation date if EXIF parser did not succeed
         if creationDate.timeIntervalSince1970 > Date().timeIntervalSince1970 - 10 { // near now
             if let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
                let fsCreationDate = attributes[.creationDate] as? Date {
@@ -101,7 +121,7 @@ public final class ImageManager: Sendable {
             }
         }
         
-        return (creationDate, cameraModel)
+        return (creationDate, cameraModel, latitude, longitude)
     }
     
     public func clearCache() {
