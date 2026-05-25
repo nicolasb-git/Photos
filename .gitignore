@@ -1,0 +1,19 @@
+# macOS system files
+.DS_Store
+
+# Swift Package Manager build directory
+.build/
+.swiftpm/
+
+# Compiled executables and test binaries
+test_logic
+
+# Manually generated application bundle
+/Photo Sorter.app
+
+# Generated test photo directory
+/TestSourcePhotos/
+
+# Local logs
+*.log
+/photosorter_debug.log
