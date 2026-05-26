@@ -163,10 +163,11 @@ struct MainView: View {
             }
         }
         .alert("Delete Photos", isPresented: $viewModel.showDeleteConfirmation) {
-            Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
                 viewModel.executeDelete()
             }
+            .keyboardShortcut(.defaultAction)
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text("Are you sure you want to move the \(viewModel.selectedPhotoIDs.count) selected photos to the Trash?")
         }
