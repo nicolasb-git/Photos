@@ -273,6 +273,122 @@ public final class PhotosViewModel: ObservableObject {
         saveSession()
     }
     
+    public func renameTargetFolder(_ target: TargetFolder, to newName: String) {
+        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+        
+        let parentURL = target.url.deletingLastPathComponent()
+        let newURL = parentURL.appendingPathComponent(trimmedName, isDirectory: true)
+        
+        logDebug("renameTargetFolder: Renaming target folder from \(target.url.path) to \(newURL.path)")
+        
+        do {
+            if fileManager.fileExists(atPath: target.url.path) {
+                try fileManager.moveItem(at: target.url, to: newURL)
+                logDebug("renameTargetFolder: Successfully renamed folder on disk")
+            } else {
+                logDebug("renameTargetFolder: Folder does not exist on disk, only updating in list")
+            }
+            
+            if let index = targetFolders.firstIndex(where: { $0.id == target.id }) {
+                targetFolders[index] = TargetFolder(id: target.id, url: newURL, filesCount: target.filesCount)
+                saveSession()
+                self.statusMessage = "Renamed target folder to '\(trimmedName)'."
+            }
+        } catch {
+            self.statusMessage = "Failed to rename folder: \(error.localizedDescription)"
+            logDebug("renameTargetFolder: FAILED to rename folder: \(error.localizedDescription)")
+        }
+    }
+    
+    public func handleDroppedURLs(_ urls: [URL], onto target: TargetFolder) {
+        guard !urls.isEmpty else { return }
+        
+        let firstURL = urls[0]
+        var isDir: ObjCBool = false
+        if fileManager.fileExists(atPath: firstURL.path, isDirectory: &isDir), isDir.boolValue {
+            if let sourceTarget = targetFolders.first(where: { $0.url.path == firstURL.path }) {
+                mergeTargetFolder(sourceTarget, into: target)
+            } else {
+                self.statusMessage = "Dropped folder is not a target folder."
+            }
+        } else {
+            self.executeMove(to: target)
+        }
+    }
+    
+    public func mergeTargetFolder(_ source: TargetFolder, into destination: TargetFolder) {
+        guard source.id != destination.id else { return }
+        
+        self.isLoading = true
+        self.statusMessage = "Merging \(source.name) into \(destination.name)..."
+        logDebug("mergeTargetFolder: Merging \(source.url.path) into \(destination.url.path)")
+        
+        Task {
+            let success = await mergeDirectoriesAsync(from: source.url, to: destination.url)
+            
+            await MainActor.run {
+                self.isLoading = false
+                if success {
+                    if let index = self.targetFolders.firstIndex(where: { $0.id == source.id }) {
+                        self.targetFolders.remove(at: index)
+                    }
+                    
+                    if let destIndex = self.targetFolders.firstIndex(where: { $0.id == destination.id }) {
+                        self.targetFolders[destIndex].filesCount = self.countFilesInDirectory(destination.url)
+                    }
+                    
+                    self.saveSession()
+                    self.statusMessage = "Merged \(source.name) into \(destination.name) successfully."
+                    self.logDebug("mergeTargetFolder: Successfully merged \(source.name) into \(destination.name)")
+                } else {
+                    self.statusMessage = "Failed to merge folders."
+                    self.logDebug("mergeTargetFolder: FAILED to merge \(source.name) into \(destination.name)")
+                }
+            }
+        }
+    }
+    
+    private func mergeDirectoriesAsync(from source: URL, to destination: URL) async -> Bool {
+        return await Task.detached(priority: .userInitiated) { () -> Bool in
+            let fm = FileManager.default
+            
+            guard let items = try? fm.contentsOfDirectory(at: source, includingPropertiesForKeys: nil, options: []) else {
+                return false
+            }
+            
+            for itemURL in items {
+                let filename = itemURL.lastPathComponent
+                var destURL = destination.appendingPathComponent(filename)
+                
+                var counter = 1
+                let baseName = itemURL.deletingPathExtension().lastPathComponent
+                let pathExtension = itemURL.pathExtension
+                
+                while (try? destURL.checkResourceIsReachable()) == true {
+                    let newName = pathExtension.isEmpty ? "\(baseName)_\(counter)" : "\(baseName)_\(counter).\(pathExtension)"
+                    destURL = destination.appendingPathComponent(newName)
+                    counter += 1
+                }
+                
+                do {
+                    try fm.moveItem(at: itemURL, to: destURL)
+                } catch {
+                    print("Error moving item during merge: \(error)")
+                    return false
+                }
+            }
+            
+            do {
+                try fm.removeItem(at: source)
+            } catch {
+                print("Error removing source folder after merge: \(error)")
+            }
+            
+            return true
+        }.value
+    }
+    
     // MARK: - Deleting Files
     
     public func initiateDelete() {

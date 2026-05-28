@@ -145,17 +145,45 @@ struct TargetFolderRowContainer: View {
     let target: TargetFolder
     @Binding var activeDragFolderID: UUID?
     
+    @State private var showRenameDialog = false
+    @State private var renameFolderName = ""
+    
     var body: some View {
         TargetFolderRow(target: target, isDragOver: activeDragFolderID == target.id)
+            .onDrag {
+                NSItemProvider(item: target.url as NSURL, typeIdentifier: UTType.fileURL.identifier)
+            }
             .onDrop(of: [.fileURL], isTargeted: Binding(
                 get: { activeDragFolderID == target.id },
                 set: { isTargeted in activeDragFolderID = isTargeted ? target.id : nil }
             )) { providers in
-                viewModel.initiateMove(to: target)
                 activeDragFolderID = nil
+                
+                Task {
+                    var urls: [URL] = []
+                    for provider in providers {
+                        if let url = await loadURL(from: provider) {
+                            urls.append(url)
+                        }
+                    }
+                    
+                    await MainActor.run {
+                        viewModel.handleDroppedURLs(urls, onto: target)
+                    }
+                }
+                
                 return true
             }
             .contextMenu {
+                Button {
+                    renameFolderName = target.name
+                    showRenameDialog = true
+                } label: {
+                    Label("Rename Folder...", systemImage: "pencil")
+                }
+                
+                Divider()
+                
                 Button(role: .destructive) {
                     if let index = viewModel.targetFolders.firstIndex(where: { $0.id == target.id }) {
                         viewModel.removeTargetFolder(at: IndexSet(integer: index))
@@ -164,6 +192,27 @@ struct TargetFolderRowContainer: View {
                     Label("Remove from list", systemImage: "trash")
                 }
             }
+            .alert("Rename Folder", isPresented: $showRenameDialog) {
+                TextField("New Folder Name", text: $renameFolderName)
+                Button("Rename") {
+                    viewModel.renameTargetFolder(target, to: renameFolderName)
+                }
+                .disabled(renameFolderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button("Cancel", role: .cancel) {
+                    renameFolderName = ""
+                }
+            } message: {
+                Text("Enter a new name for the target folder.")
+            }
+    }
+    
+    private func loadURL(from provider: NSItemProvider) async -> URL? {
+        await withCheckedContinuation { continuation in
+            _ = provider.loadObject(ofClass: NSURL.self) { nsUrl, error in
+                let url = nsUrl as? NSURL
+                continuation.resume(returning: url as URL?)
+            }
+        }
     }
 }
 
